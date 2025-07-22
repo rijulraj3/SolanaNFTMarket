@@ -1,0 +1,282 @@
+use anchor_lang::prelude::*;
+use anchor_spl::token::{self, Mint, Token, TokenAccount};
+
+declare_id!("YourProgramIdHere");
+
+#[program]
+pub mod solana_nft_market {
+    use super::*;
+
+    #[account]
+    pub struct NFTMarket {
+        pub owner: Pubkey,
+        pub nft_mint: Pubkey,
+        pub price: u64, // In SOL (lamports)
+        pub for_sale: bool,
+    }
+
+    pub fn mint_nft(ctx: Context<MintNFT>, metadata_uri: String) -> Result<()> {
+        let nft_market = &mut ctx.accounts.nft_market;
+        nft_market.owner = *ctx.accounts.user.key;
+        nft_market.nft_mint = ctx.accounts.mint.key();
+        nft_market.for_sale = false;
+
+        // Mint NFT to user
+        token::mint_to(
+            CpiContext::new(
+                ctx.accounts.token_program.to_account_info(),
+                token::MintTo {
+                    mint: ctx.accounts.mint.to_account_info(),
+                    to: ctx.accounts.user_token_account.to_account_info(),
+                    authority: ctx.accounts.mint_authority.to_account_info(),
+                },
+            ),
+            1, // 1 NFT
+        )?;
+
+        Ok(())
+    }
+
+    pub fn list_nft(ctx: Context<ListNFT>, price: u64) -> Result<()> {
+        let nft_market = &mut ctx.accounts.nft_market;
+        require!(nft_market.owner == *ctx.accounts.user.key, ErrorCode::Unauthorized);
+        nft_market.for_sale = true;
+        nft_market.price = price;
+        Ok(())
+    }
+
+    pub fn buy_nft(ctx: Context<BuyNFT>) -> Result<()> {
+        let nft_market = &mut ctx.accounts.nft_market;
+        require!(nft_market.for_sale, ErrorCode::NotForSale);
+
+        // Transfer SOL from buyer to seller
+        **ctx.accounts.buyer.to_account_info().try_borrow_mut_lamports()? -= nft_market.price;
+        **ctx.accounts.seller.to_account_info().try_borrow_mut_lamports()? += nft_market.price;
+
+        // Transfer NFT to buyer
+        token::transfer(
+            CpiContext::new(
+                ctx.accounts.token_program.to_account_info(),
+                token::Transfer {
+                    from: ctx.accounts.seller_token_account.to_account_info(),
+                    to: ctx.accounts.buyer_token_account.to_account_info(),
+                    authority: ctx.accounts.seller.to_account_info(),
+                },
+            ),
+            1,
+        )?;
+
+        nft_market.owner = *ctx.accounts.buyer.key;
+        nft_market.for_sale = false;
+        Ok(())
+    }
+}
+
+#[derive(Accounts)]
+pub struct MintNFT<'info> {
+    #[account(mut)]
+    pub user: Signer<'info>,
+    #[account(mut)]
+    pub mint: Account<'info, Mint>,
+    #[account(mut)]
+    pub user_token_account: Account<'info, TokenAccount>,
+    #[account(mut)]
+    pub nft_market: Account<'info, NFTMarket>,
+    pub token_program: Program<'info, Token>,
+    pub system_program: Program<'info, System>,
+    #[account(mut)]
+    pub mint_authority: Signer<'info>,
+}
+
+#[derive(Accounts)]
+pub struct ListNFT<'info> {
+    #[account(mut)]
+    pub user: Signer<'info>,
+    #[account(mut)]
+    pub nft_market: Account<'info, NFTMarket>,
+}
+
+#[derive(Accounts)]
+pub struct BuyNFT<'info> {
+    #[account(mut)]
+    pub buyer: Signer<'info>,
+    #[account(mut)]
+    pub seller: AccountInfo<'info>,
+    #[account(mut)]
+    pub seller_token_account: Account<'info, TokenAccount>,
+    #[account(mut)]
+    pub buyer_token_account: Account<'info, TokenAccount>,
+    #[account(mut)]
+    pub nft_market: Account<'info, NFTMarket>,
+    pub token_program: Program<'info, Token>,
+    pub system_program: Program<'info, System>,
+}
+
+#[error_code]
+pub enum ErrorCode {
+    #[msg("User is not authorized")]
+    Unauthorized,
+    #[msg("NFT is not for sale")]
+    NotForSale,
+}
+
+
+
+Backend: Python FastAPIThis handles AI predictions, ORE mining, and marketplace analytics.
+
+
+
+from fastapi import FastAPI
+from pydantic import BaseModel
+import requests
+import pandas as pd
+import numpy as np
+from sklearn.ensemble import RandomForestRegressor
+from datetime import datetime
+
+app = FastAPI()
+
+# NFT data model
+class UserData(BaseModel):
+    user_id: str
+    sol_balance: float
+    nfts_owned: int
+
+# Fetch SOL and ORE prices
+def get_prices():
+    try:
+        url = "https://api.coingecko.com/api/v3/simple/price?ids=solana,ore&vs_currencies=usd"
+        response = requests.get(url).json()
+        return {"sol": response["solana"]["usd"], "ore": response.get("ore", {}).get("usd", 0)}
+    except:
+        return {"sol": 0, "ore": 0}
+
+# Fetch energy price (mock)
+def get_energy_price():
+    return 0.12  # $0.12/kWh (replace with WattTime API)
+
+# Train AI model for NFT price prediction
+def train_price_model():
+    data = {
+        "rarity": [0.9, 0.7, 0.5, 0.8],
+        "sol_price": [150, 140, 160, 155],
+        "market_volume": [1000, 800, 1200, 900],
+        "nft_price": [0.5, 0.4, 0.6, 0.45]
+    }
+    df = pd.DataFrame(data)
+    X = df[["rarity", "sol_price", "market_volume"]]
+    y = df["nft_price"]
+    
+    model = RandomForestRegressor(n_estimators=100, random_state=42)
+    model.fit(X, y)
+    return model
+
+# Optimize ORE mining (mock)
+def optimize_ore_mining(energy_cost):
+    return {"hashrate": 1000, "ore_per_min": 0.01} if energy_cost < 0.15 else {"hashrate": 0, "ore_per_min": 0}
+
+# API endpoint for marketplace optimization
+@app.post("/optimize-market")
+async def optimize_market(data: UserData):
+    prices = get_prices()
+    energy_cost = get_energy_price()
+    model = train_price_model()
+    
+    # Predict NFT price (mock data)
+    nft_price = model.predict(np.array([[0.8, prices["sol"], 1000]]))[0]
+    
+    # Optimize ORE mining
+    mining_data = optimize_ore_mining(energy_cost)
+    
+    return {
+        "user_id": data.user_id,
+        "sol_price": prices["sol"],
+        "ore_price": prices["ore"],
+        "predicted_nft_price": nft_price,
+        "mining_status": "Active" if mining_data["hashrate"] > 0 else "Paused (High Energy Cost)",
+        "ore_per_min": mining_data["ore_per_min"],
+        "energy_cost": energy_cost,
+        "timestamp": datetime.now().isoformat()
+    }
+
+
+
+Frontend: FlutterThis displays the NFT marketplace and user dashboard.
+
+
+
+import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+
+void main() => runApp(SolanaNFTMarketApp());
+
+class SolanaNFTMarketApp extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'SolanaNFTMarket',
+      theme: ThemeData(primarySwatch: Colors.purple),
+      home: MarketDashboard(),
+    );
+  }
+}
+
+class MarketDashboard extends StatefulWidget {
+  @override
+  _MarketDashboardState createState() => _MarketDashboardState();
+}
+
+class _MarketDashboardState extends State<MarketDashboard> {
+  Map<String, dynamic>? data;
+
+  Future<void> fetchData() async {
+    try {
+      final response = await http.post(
+        Uri.parse('http://your-backend-ip:8000/optimize-market'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'user_id': 'user123',
+          'sol_balance': 10.0,
+          'nfts_owned': 5
+        }),
+      );
+      if (response.statusCode == 200) {
+        setState(() {
+          data = jsonDecode(response.body);
+        });
+      }
+    } catch (e) {
+      print('Error: $e');
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    fetchData();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('SolanaNFTMarket')),
+      body: data == null
+          ? Center(child: CircularProgressIndicator())
+          : Padding(
+              padding: EdgeInsets.all(16.0),
+              child: Column(
+                children: [
+                  Text('SOL Price: \$${data!['sol_price']}',
+                      style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                  Text('ORE Price: \$${data!['ore_price']}'),
+                  Text('Predicted NFT Price: ${data!['predicted_nft_price'].toStringAsFixed(2)} SOL'),
+                  Text('ORE Mining: ${data!['mining_status']}'),
+                  Text('ORE per Minute: ${data!['ore_perestisAsFixed(4)}'),
+                  Text('Energy Cost: \$${data!['energy_cost'].toStringAsFixed(2)}/kWh'),
+                  SizedBox(height: 20),
+                  ElevatedButton(
+                    onPressed: fetchData,
+                    child: Text('Refresh'),
+                  ),
+                 
