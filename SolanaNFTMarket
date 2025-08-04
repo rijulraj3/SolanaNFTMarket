@@ -269,14 +269,5 @@ class _MarketDashboardState extends State<MarketDashboard> {
                 children: [
                   Text('SOL Price: \$${data!['sol_price']}',
                       style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-                  Text('ORE Price: \$${data!['ore_price']}'),
-                  Text('Predicted NFT Price: ${data!['predicted_nft_price'].toStringAsFixed(2)} SOL'),
-                  Text('ORE Mining: ${data!['mining_status']}'),
-                  Text('ORE per Minute: ${data!['ore_perestisAsFixed(4)}'),
-                  Text('Energy Cost: \$${data!['energy_cost'].toStringAsFixed(2)}/kWh'),
-                  SizedBox(height: 20),
-                  ElevatedButton(
-                    onPressed: fetchData,
-                    child: Text('Refresh'),
-                  ),
+                 
                  
