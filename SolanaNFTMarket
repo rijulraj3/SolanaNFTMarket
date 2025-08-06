@@ -257,15 +257,7 @@ class _MarketDashboardState extends State<MarketDashboard> {
     fetchData();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text('SolanaNFTMarket')),
-      body: data == null
-          ? Center(child: CircularProgressIndicator())
-          : Padding(
-              padding: EdgeInsets.all(16.0),
-              child: Column(
+
                 children: [
                   Text('SOL Price: \$${data!['sol_price']}',
                       style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
